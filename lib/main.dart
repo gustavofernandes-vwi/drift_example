@@ -1,6 +1,7 @@
 import 'package:drift_exemple/models/tarefa.dart';
 import 'package:drift_exemple/widgets/tarefa_item.dart';
 import 'package:flutter/material.dart';
+import 'package:rxdart/rxdart.dart';
 
 void main() {
   runApp(const MyApp());
@@ -9,7 +10,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -32,7 +32,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  List<Tarefa> tarefas = [];
+  final tarefasController = BehaviorSubject<List<Tarefa>>.seeded([]);
+  Stream<List<Tarefa>> get tarefasOut => tarefasController.stream;
+  Sink<List<Tarefa>> get tarefasIn => tarefasController.sink;
+  List<Tarefa> get tarefas => tarefasController.value;
 
   _importarTarefas() {
     final List<Map<String,dynamic>> tarefasImportadas = [
@@ -42,15 +45,13 @@ class _MyHomePageState extends State<MyHomePage> {
       {'titulo': 'Preparar apresentação', 'prazo': '2023-06-23 10:15'},
     ];
 
-    setState(() {
-      tarefas = tarefasImportadas.map((e) => Tarefa.fromJson(e)).toList();
-    });
+    tarefasIn.add(tarefasImportadas.map((e) => Tarefa.fromJson(e)).toList());
   }
 
   _editar(int index, Tarefa tarefa) {
-    setState(() {
-      tarefas[index] = tarefa;
-    });
+    List<Tarefa> tarefas = this.tarefas;
+    tarefas[index] = tarefa;
+    tarefasIn.add(tarefas);
   }
 
   _marcarConcluida(int index, bool concluida) {
@@ -63,25 +64,31 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: CustomScrollView(
-        slivers: [
-          if (tarefas.isEmpty) const SliverFillRemaining(
-            child: Center(
-              child: Text("Você não possuí nenhuma tarefa"),
-            ),
-          ),
-          if (tarefas.isNotEmpty) ...[
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => TarefaItem(
-                  tarefas[index],
-                  onMarcarConcluida: (concluida) => _marcarConcluida(index, concluida),
+      body: StreamBuilder<List<Tarefa>>(
+        stream: tarefasOut,
+        builder: (context, snapshot) {
+          final List<Tarefa> tarefas = snapshot.data ?? [];
+          return CustomScrollView(
+            slivers: [
+              if (tarefas.isEmpty) const SliverFillRemaining(
+                child: Center(
+                  child: Text("Você não possuí nenhuma tarefa"),
                 ),
-                childCount: tarefas.length
               ),
-            ),
-          ]
-        ],
+              if (tarefas.isNotEmpty) ...[
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => TarefaItem(
+                      tarefas[index],
+                      onMarcarConcluida: (concluida) => _marcarConcluida(index, concluida),
+                    ),
+                    childCount: tarefas.length
+                  ),
+                ),
+              ]
+            ],
+          );
+        }
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _importarTarefas,
