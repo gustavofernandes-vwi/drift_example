@@ -1,4 +1,5 @@
 import 'package:drift_exemple/models/tarefa.dart';
+import 'package:drift_exemple/repository/database.dart';
 import 'package:drift_exemple/widgets/tarefa_item.dart';
 import 'package:flutter/material.dart';
 import 'package:rxdart/rxdart.dart';
@@ -32,10 +33,19 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  final database = Database();
   final tarefasController = BehaviorSubject<List<Tarefa>>.seeded([]);
   Stream<List<Tarefa>> get tarefasOut => tarefasController.stream;
   Sink<List<Tarefa>> get tarefasIn => tarefasController.sink;
   List<Tarefa> get tarefas => tarefasController.value;
+
+  @override
+  void initState() {
+    super.initState();
+    database.recuperarTarefas().listen((event) {
+      tarefasIn.add(event);
+    });
+  }
 
   _importarTarefas() {
     final List<Map<String,dynamic>> tarefasImportadas = [
@@ -45,13 +55,13 @@ class _MyHomePageState extends State<MyHomePage> {
       {'titulo': 'Preparar apresentação', 'prazo': '2023-06-23 10:15'},
     ];
 
-    tarefasIn.add(tarefasImportadas.map((e) => Tarefa.fromJson(e)).toList());
+    database.salvarTarefas(tarefasImportadas.map((e) => Tarefa.fromJson(e)).toList());
   }
 
   _editar(int index, Tarefa tarefa) {
     List<Tarefa> tarefas = this.tarefas;
     tarefas[index] = tarefa;
-    tarefasIn.add(tarefas);
+    database.salvarTarefas(tarefas);
   }
 
   _marcarConcluida(int index, bool concluida) {
